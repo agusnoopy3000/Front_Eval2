@@ -7,41 +7,41 @@ on:
 
 jobs:
   build-push-deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, front]
     steps:
       - name: Checkout codigo
         uses: actions/checkout@v4
 
       - name: Login Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Build imagen frontend
+        run: |
+          docker build \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/front-eval2:latest \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/front-eval2:${{ github.sha }} \
+            .
 
-      - name: Build y push imagen frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/front-eval2:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/front-eval2:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Push a Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/front-eval2:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/front-eval2:${{ github.sha }}
 
-      - name: Deploy en EC2-Frontend
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
+      - name: Deploy en EC2-Frontend via SSH
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > /tmp/eval2-key.pem
+          chmod 600 /tmp/eval2-key.pem
+          scp -i /tmp/eval2-key.pem -o StrictHostKeyChecking=no docker-compose.yml ${EC2_USER}@${EC2_HOST}:~/app/docker-compose.yml
+          ssh -i /tmp/eval2-key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
             cd ~/app
-            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/deploy/docker-compose.yml -o docker-compose.yml
             docker compose pull
             docker compose up -d
             docker image prune -f
             docker ps
+          '
+          rm -f /tmp/eval2-key.pem
