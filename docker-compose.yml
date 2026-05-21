@@ -1,0 +1,12 @@
+services:
+  frontend:
+    image: ${DOCKERHUB_USERNAME}/front-eval2:latest
+    container_name: eval2-front
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      BACKEND_URL: ${BACKEND_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: "False"
+    ports:
+      - "80:5000"
