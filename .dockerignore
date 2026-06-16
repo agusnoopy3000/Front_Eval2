@@ -1,0 +1,22 @@
+# Control de versiones
+.git
+.gitignore
+
+# Entorno y secretos (nunca dentro de la imagen)
+.env
+.env.*
+!.env.example
+
+# Cache de Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Artefactos de CI/CD e infraestructura
+.github/
+*.md
+Dockerfile
+.dockerignore
+docker-compose.yml

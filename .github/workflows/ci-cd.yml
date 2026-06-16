@@ -1,0 +1,68 @@
+name: CI/CD Frontend
+
+# Se ejecuta en cada push a main y también de forma manual
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: eval2-frontend
+  ECS_CLUSTER: eval2-cluster
+  ECS_SERVICE: eval2-service
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # ---------- 1. Checkout ----------
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      # ---------- 2. Test ----------
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Validar que la aplicación importa correctamente
+        run: python -c "import app; print('Frontend import OK')"
+
+      # ---------- 3. Credenciales AWS (GitHub Secrets) ----------
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ---------- 4. Build + Push a Amazon ECR ----------
+      - name: Iniciar sesión en Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Construir, etiquetar y publicar imagen en ECR
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          docker build -t $REGISTRY/$ECR_REPOSITORY:latest \
+                       -t $REGISTRY/$ECR_REPOSITORY:${{ github.sha }} .
+          docker push $REGISTRY/$ECR_REPOSITORY:latest
+          docker push $REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+
+      # ---------- 5. Deploy automatizado en ECS ----------
+      - name: Desplegar nueva versión en ECS Fargate
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --force-new-deployment
+          echo "Despliegue disparado. Esperando estabilización del servicio..."
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE

@@ -1,0 +1,70 @@
+# Orquestación local del entorno de desarrollo (frontend + backend + base de datos).
+# Requiere que los tres repositorios estén clonados como carpetas hermanas:
+#   ./Front_Eval2  ./Back_EVAL2  ./Data_Eval2
+# Uso:  docker compose -f Back_EVAL2/docker-compose.yml up --build
+name: eval2
+
+services:
+  # ---------- Base de datos relacional (MySQL 8) ----------
+  mysql:
+    build:
+      context: ../Data_Eval2
+    image: eval2-mysql:local
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: proyecto_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - eval2net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # ---------- Backend API (Node/Express) ----------
+  backend:
+    build:
+      context: ../Back_EVAL2
+    image: eval2-backend:local
+    environment:
+      PORT: 3000
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: rootpass
+      DB_NAME: proyecto_db
+      DB_PORT: 3306
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    networks:
+      - eval2net
+
+  # ---------- Frontend (Flask) ----------
+  frontend:
+    build:
+      context: ../Front_Eval2
+    image: eval2-frontend:local
+    environment:
+      PORT: 5000
+      BACKEND_URL: http://backend:3000
+      SECRET_KEY: clave_dev_local
+      DEBUG: "False"
+    depends_on:
+      - backend
+    ports:
+      - "5000:5000"
+    networks:
+      - eval2net
+
+# Red interna que aísla la comunicación entre los servicios
+networks:
+  eval2net:
+    driver: bridge
+
+# Volumen persistente para los datos de MySQL en desarrollo
+volumes:
+  mysql_data:

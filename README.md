@@ -129,3 +129,8 @@ response = requests.post(f'{BACKEND_URL}/api/usuarios', json=datos_usuario)
 - Asegúrate de que las URLs en las variables de entorno sean correctas
 - En producción, establece `DEBUG=False` y usa una `SECRET_KEY` segura
 - La aplicación está diseñada para funcionar con el backend API de este proyecto
+
+
+## Despliegue DevOps (EFT)
+
+CI/CD con GitHub Actions + despliegue en AWS ECS Fargate. Ver [ARQUITECTURA.md](ARQUITECTURA.md) para el detalle de contenerización, pipeline, infraestructura y diagrama.
