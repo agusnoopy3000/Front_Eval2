@@ -25,7 +25,7 @@ jobs:
       # final) para no depender del Python del runner self-hosted.
       - name: Instalar dependencias y validar la importación de la app
         run: |
-          docker run --rm -v "$PWD":/app -w /app python:3.12-slim \
+          docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -v "$PWD":/app -w /app python:3.12-slim \
             sh -c "pip install --no-cache-dir -r requirements.txt && python -c 'import app; print(\"Frontend import OK\")'"
 
       # ---------- 3. Credenciales AWS (GitHub Secrets) ----------
