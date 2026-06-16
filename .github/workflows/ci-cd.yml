@@ -21,16 +21,12 @@ jobs:
         uses: actions/checkout@v4
 
       # ---------- 2. Test ----------
-      - name: Configurar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Instalar dependencias
-        run: pip install -r requirements.txt
-
-      - name: Validar que la aplicación importa correctamente
-        run: python -c "import app; print('Frontend import OK')"
+      # Se prueba dentro de un contenedor python:3.12-slim (misma versión que la imagen
+      # final) para no depender del Python del runner self-hosted.
+      - name: Instalar dependencias y validar la importación de la app
+        run: |
+          docker run --rm -v "$PWD":/app -w /app python:3.12-slim \
+            sh -c "pip install --no-cache-dir -r requirements.txt && python -c 'import app; print(\"Frontend import OK\")'"
 
       # ---------- 3. Credenciales AWS (GitHub Secrets) ----------
       - name: Configurar credenciales de AWS
